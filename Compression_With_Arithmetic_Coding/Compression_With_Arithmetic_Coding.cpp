@@ -176,6 +176,27 @@ void Statistics(char* String)
 	}
 	printf("\nKolovo simvolov : %d\nSumm of all Frequancy : %f\n", kk, summ_of_all_freq);
 }
+
+void Compression(char* String, sym* simbols)
+{
+	float* l = new float[100];
+	float* h = new float[100];
+	//интервалы i кодироуемого сивола потока
+	l[-1] = 0;	
+	h[-1] = 1;
+	for (int i = 0; i < strlen(String); i++)
+	{
+		chh = String[i];
+		for (int j = 0; j < k; j++)
+			if (chh == simbols[j].ch)
+			{
+				l[i] = l[i - 1] + simbols[j - 1].range * (h[i - 1] - l[i - 1]);
+				h[i] = l[i - 1] + simbols[j].range * (h[i - 1] - l[i - 1]);
+			}
+	}
+	cout <<"range govna: [" << l[strlen(String) - 1]<<";" << h[strlen(String) - 1]<<")\n";
+}
+
 int main()
 {
     std::cout << "Hello World!\n";
@@ -198,6 +219,7 @@ int main()
 	fclose(stream);
 	////////////////////////////////////////
 	Statistics(String);						//вызов функции определения частоты символов в строке
+	Compression(String, simbols);
 
 	///////////////////////////////////
 	
