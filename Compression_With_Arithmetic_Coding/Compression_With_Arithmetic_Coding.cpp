@@ -205,7 +205,8 @@ void Decompression(float encoding_message_number, sym* simbols, char* ReducedStr
 	//интервалы i кодироуемого сивола потока
 	l[-1] = 0;
 	h[-1] = 1;
-	for (int i = 0; i < length_file; i++)
+	int i = 0;
+	for (; i < length_file; i++)
 	{
 		int j = 0;
 		for (; j < k; j++)
@@ -217,6 +218,7 @@ void Decompression(float encoding_message_number, sym* simbols, char* ReducedStr
 		}
 		ReducedString[i] = simbols[j].ch;
 	}
+	ReducedString[i] = '\0';
 }
 
 int main()
