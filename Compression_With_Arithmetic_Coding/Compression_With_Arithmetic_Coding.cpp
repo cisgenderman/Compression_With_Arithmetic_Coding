@@ -1,5 +1,5 @@
 ﻿#include <iostream>
-
+//compression
 int l_0 = 0;
 int h_0 = 65535;
 int i = 0;
@@ -45,6 +45,44 @@ void BitsPlusFollow(int bit)
 		CompressedFile.WriteBit(!bit);
 	}
 }
+
+//decompression
+int l[0] = 0;
+int h[0] = 65535;
+float delitel = b[c_last];
+float first_qtr = (h[0] + 1) / 4;
+float half = first_qtr * 2;
+float third_qtr = first_qtr * 3;
+float value = CompressedFile.Read16bit();
+for (i = 1; i < compressedFile.DataLength(); i++)
+{
+	freq = ((value - l[i - 1] + 1) * delitel - 1) / (h[i - 1] - l[i - 1] + 1);
+	for (j = 1; b[j] <= freq; j++);
+	l[i] = l[i - 1] + b[j - 1] * (h[i - 1] - l[i - 1] + 1) / delitel;
+	h[i] = l[i - 1] + b[j] * (h[i - 1] - l[i - 1] + 1) / delitel - 1;
+	for (;;)
+	{
+		if (h[i] < half)
+			;
+		else if (l[i] >= half)
+		{
+			l[i] -= half;
+			h[i] -= half;
+			value -= half;
+		}
+		else if ((l[i] >= first_qtr) && (h[i] < third_qtr))
+		{
+			l[i] -= first_qtr;
+			h[i] -= first_qtr;
+			value -= first_qtr;
+		}
+		else break;
+		l[i] += l[i];
+		h[i] += h[i] + 1;
+		value += value + CompressedFile.ReadBit();
+	}
+	DataFile.WriteSymbol(c);
+};
 
 int main()
 {
