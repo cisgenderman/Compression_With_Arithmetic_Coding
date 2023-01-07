@@ -7,6 +7,7 @@ struct sym
 {
 	unsigned char ch;
 	float freq;
+	float range;
 	char code[255];
 	sym* left;
 	sym* right;
@@ -138,10 +139,12 @@ void Statistics(char* String)
 			}
 		}
 	}
-	// расчет частоты встречаемости
+	// расчет частоты встречаемости 
+	
 	for (int i = 0; i < k; i++)
 	{
 		simbols[i].freq = (float)kolvo[i] / kk;
+		
 	}
 	// в массив указателей заносим адреса записей
 	for (int i = 0; i < k; i++)
@@ -162,12 +165,14 @@ void Statistics(char* String)
 			}
 		}
 	}
-	//печатаем статистику 
+	//печатаем статистику и диапозона
 	//по итогу сумма частот должна дать 1
+	simbols[-1].range = 0;
 	for (int i = 0; i < k; i++)
 	{
 		summ_of_all_freq += simbols[i].freq;
-		printf("Character = %d\tFrequancy = %f\tSymbol = %c\t\n", simbols[i].ch, simbols[i].freq, psym[i]->ch);
+		simbols[i].range = simbols[i-1].range + simbols[i].freq;
+		printf("Character = %d\tFrequancy = %f\tRange = [%f;%f)\tSymbol = %c\t\n", simbols[i].ch, simbols[i].freq, simbols[i - 1].range, simbols[i].range, psym[i]->ch);
 	}
 	printf("\nKolovo simvolov : %d\nSumm of all Frequancy : %f\n", kk, summ_of_all_freq);
 }
