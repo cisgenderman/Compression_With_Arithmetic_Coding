@@ -331,6 +331,10 @@ int main()
 				Menu();
 				break;
 			}
+		default:
+			wcout << "\tWRONG CHOISE" << endl;
+			Menu();
+			break;
 		}
 	}
 	delete[] String;
