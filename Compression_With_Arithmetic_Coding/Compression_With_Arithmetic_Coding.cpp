@@ -1,11 +1,19 @@
 ﻿#include <iostream>
 #include <errno.h>
+#include <locale>
+#include <fstream>
+
+#include <sstream>
+#include <codecvt>
+#include <io.h>
+#include <fcntl.h>
 
 using namespace std;
 
 struct sym
 {
-	unsigned char ch;
+	//char ch;
+	wchar_t ch;
 	float freq;
 	float range;
 	char code[255];
@@ -20,6 +28,7 @@ int kolvo[256] = { 0 };		//инициализируем массив колич�
 sym simbols[256] = { 0 };	//инициализируем массив записей
 sym* psym[256];				//инициализируем массив указателей на записи
 float summ_of_all_freq = 0;	//сумма частот встречаемости
+int _stateMenu;
 
 //compression
 /*
@@ -109,10 +118,24 @@ for (i = 1; i < compressedFile.DataLength(); i++)
 };
 */
 
-void Statistics(char* String)
+wstring readFile(const char* filename)
 {
+	std::wifstream wif(filename);
+	wif.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));
+	std::wstringstream wss;
+	wss << wif.rdbuf();
+	return wss.str();
+}
+
+void Statistics(wstring String)
+{
+	k = 0;
+	kk = 0;
+	summ_of_all_freq = 0;
+	memset(kolvo, 0, sizeof(int) * 256);
+	sym simbols_1[256] = { 0 };
 	//посимвольно считываем строку и составляем таблицу встречаемости
-	for (int i = 0; i < strlen(String); i++)
+	for (int i = 0; i < String.size(); i++)
 	{
 		//цикл для подсчета информация из строки
 		chh = String[i];
@@ -120,7 +143,7 @@ void Statistics(char* String)
 		{
 			//если символ нашли в массиве записей символов, то в массиве количества уникальных символов увеличиваем количество
 			//и увеличиваем общее количество символов
-			if (chh == simbols[j].ch)
+			if (chh == simbols_1[j].ch)
 			{
 				kolvo[j]++;
 				kk++;
@@ -129,9 +152,9 @@ void Statistics(char* String)
 			//если не нашли в массиве записей символов, то знаносим этот символ 
 			//в массиве количества уникальных символов ставим единицу
 			//и увеличиваем общее количество символов и уникальных символов
-			if (simbols[j].ch == 0)
+			if (simbols_1[j].ch == 0)
 			{
-				simbols[j].ch = (unsigned char)chh;
+				simbols_1[j].ch = chh;
 				kolvo[j] = 1;
 				k++;
 				kk++;
@@ -143,7 +166,7 @@ void Statistics(char* String)
 	
 	for (int i = 0; i < k; i++)
 	{
-		simbols[i].freq = (float)kolvo[i] / kk;
+		simbols_1[i].freq = (float)kolvo[i] / kk;
 		
 	}
 	// в массив указателей заносим адреса записей
@@ -157,34 +180,38 @@ void Statistics(char* String)
 	{
 		for (int j = 0; j < k - 1; j++)
 		{
-			if (simbols[j].freq < simbols[j + 1].freq)
+			if (simbols_1[j].freq < simbols_1[j + 1].freq)
 			{
-				tempp = simbols[j];
-				simbols[j] = simbols[j + 1];
-				simbols[j + 1] = tempp;
+				tempp = simbols_1[j];
+				simbols_1[j] = simbols_1[j + 1];
+				simbols_1[j + 1] = tempp;
 			}
 		}
 	}
 	//печатаем статистику и диапозона
 	//по итогу сумма частот должна дать 1
-	simbols[-1].range = 0;
+	simbols_1[-1].range = 0;
 	for (int i = 0; i < k; i++)
 	{
+		simbols[i] = simbols_1[i];
+		psym[i] = &simbols[i];
 		summ_of_all_freq += simbols[i].freq;
 		simbols[i].range = simbols[i-1].range + simbols[i].freq;
-		printf("Character = %d\tFrequancy = %f\tRange = [%f;%f)\tSymbol = %c\t\n", simbols[i].ch, simbols[i].freq, simbols[i - 1].range, simbols[i].range, psym[i]->ch);
+		wprintf(L"Character = %d\t\tFrequancy = %f\tRange = [%f;%f)\tSymbol = %c\t\n", simbols[i].ch, simbols[i].freq, simbols[i - 1].range, simbols[i].range, psym[i]->ch);
 	}
-	printf("\nKolovo simvolov : %d\nSumm of all Frequancy : %f\n", kk, summ_of_all_freq);
+	wprintf(L"\nKolovo simvolov : %d\nSumm of all Frequancy : %f\n", kk, summ_of_all_freq);
 }
 
-float Compression(char* String, sym* simbols)
+//коректно работает только для текста не боьше 11 символов, поэтому может нужно использовать 
+//другой алгоритм сжатия который использует целочисленные операции
+float Compression(wstring String, sym* simbols)
 {
 	float* l = new float[100];
 	float* h = new float[100];
 	//интервалы i кодироуемого сивола потока
 	l[-1] = 0;	
 	h[-1] = 1;
-	for (int i = 0; i < strlen(String); i++)
+	for (int i = 0; i < String.size(); i++)
 	{
 		chh = String[i];
 		for (int j = 0; j < k; j++)
@@ -194,11 +221,11 @@ float Compression(char* String, sym* simbols)
 				h[i] = l[i - 1] + simbols[j].range * (h[i - 1] - l[i - 1]);
 			}
 	}
-	cout <<"range govna: [" << l[strlen(String) - 1]<<";" << h[strlen(String) - 1]<<")\n";
-	return l[strlen(String) - 1];
+	wcout <<"range : [" << l[String.size() - 1]<<";" << h[String.size() - 1]<<")\n";
+	return l[String.size() - 1];
 }
 
-void Decompression(float encoding_message_number, sym* simbols, char* ReducedString,int length_file)
+void Decompression(float encoding_message_number, sym* simbols, wchar_t* ReducedString,int length_file)
 {
 	float* l = new float[100];
 	float* h = new float[100];
@@ -221,10 +248,78 @@ void Decompression(float encoding_message_number, sym* simbols, char* ReducedStr
 	ReducedString[i] = '\0';
 }
 
+//функция для выбора действия пользователя
+void Menu()
+{
+	wcout << "Menu: " << endl
+		<< "(0) exit" << endl
+		<< "(1) compression" << endl
+		<< "(2) decompression" << endl
+		<< "enter: ";
+	wcin >> _stateMenu;
+}
+
 int main()
 {
-    std::cout << "Hello World!\n";
+	char* String = new char[1000];
+	wchar_t* ReducedString = new wchar_t[1000];
+	float encoding_message_number = 0;
 
+	//считывание файла
+	FILE* stream;
+	/*
+	errno_t Input = fopen_s(&stream, "Input.txt", "r");
+	char x;
+	int i = 0;
+	while ((feof(stream) == 0))
+	{
+		fscanf_s(stream, "%c", &x);
+		String[i] = x;
+		i++;
+	}
+	String[i - 1] = '\0';
+	fclose(stream);*/
+	auto str = readFile("Input.txt");
+	_setmode(_fileno(stdout), _O_U16TEXT);
+
+	Menu();
+	while (_stateMenu != 0)
+	{
+		Statistics(str);
+		errno_t Output;// = fopen_s(&stream, "Output.txt", "w");
+		switch (_stateMenu)
+		{
+		case 1:
+			encoding_message_number = Compression(str, simbols);
+			Output = fopen_s(&stream, "Output.txt", "w");
+			fprintf(stream, "number encoding message: %f\n", encoding_message_number);
+			fclose(stream);
+			Menu();
+			break;
+		case 2:
+			//тут результат декомпресси хранится в ReducedString
+			Decompression(encoding_message_number, simbols, ReducedString, str.size());
+			/*
+			Output = fopen_s(&stream, "DecodedFile.txt", "w");
+			fprintf(stream, "Decompression Code:\n%s\n", ReducedString);
+			fclose(stream);
+			*/
+			wifstream wif("Input.txt");
+			wofstream strm;                            // выходной поток-объект
+			strm.open("DecodedFile.txt");    // открываем
+			wchar_t temp_ch;
+			while (wif.get(temp_ch))        // читать все символы, в том числе пробельные
+				strm.put(temp_ch);
+			strm.close();
+			wif.close();
+			Menu();
+			break;
+		}
+	}
+	delete[] String;
+	delete[] ReducedString;
+	return 0;
+	/*
 	char* String = new char[1000];
 	char* ReducedString = new char[1000];
 	float encoding_message_number = 0;
@@ -258,4 +353,5 @@ int main()
 	delete[] String;
 	delete[] ReducedString;
 	return 0;
+	*/
 }
