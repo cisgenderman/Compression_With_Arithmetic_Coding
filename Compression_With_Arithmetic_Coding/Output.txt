@@ -1,1 +1,1 @@
-number encoding message: 0.114333
+number encoding message: 0.144889

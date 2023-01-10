@@ -308,6 +308,15 @@ int main()
 			wofstream strm;                            // выходной поток-объект
 			strm.open("DecodedFile.txt");    // открываем
 			wchar_t temp_ch;
+			//вариант вывода
+			/*
+			wstring test = ReducedString;
+			for (int i = 0; i < test.size(); i++)
+			{
+				temp_ch = ReducedString[i];
+				strm.put(temp_ch);
+			}*/
+			
 			while (wif.get(temp_ch))        // читать все символы, в том числе пробельные
 				strm.put(temp_ch);
 			strm.close();
