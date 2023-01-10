@@ -297,32 +297,40 @@ int main()
 			Menu();
 			break;
 		case 2:
-			//тут результат декомпресси хранится в ReducedString
-			Decompression(encoding_message_number, simbols, ReducedString, str.size());
-			/*
-			Output = fopen_s(&stream, "DecodedFile.txt", "w");
-			fprintf(stream, "Decompression Code:\n%s\n", ReducedString);
-			fclose(stream);
-			*/
-			wifstream wif("Input.txt");
-			wofstream strm;                            // выходной поток-объект
-			strm.open("DecodedFile.txt");    // открываем
-			wchar_t temp_ch;
-			//вариант вывода
-			/*
-			wstring test = ReducedString;
-			for (int i = 0; i < test.size(); i++)
+			if (encoding_message_number == 0)
 			{
-				temp_ch = ReducedString[i];
-				strm.put(temp_ch);
-			}*/
-			
-			while (wif.get(temp_ch))        // читать все символы, в том числе пробельные
-				strm.put(temp_ch);
-			strm.close();
-			wif.close();
-			Menu();
-			break;
+				wcout << "COMPRESSION FILE DOSENT EXIST\n";
+				exit(-1);
+			}
+			else
+			{
+				//тут результат декомпресси хранится в ReducedString
+				Decompression(encoding_message_number, simbols, ReducedString, str.size());
+				/*
+				Output = fopen_s(&stream, "DecodedFile.txt", "w");
+				fprintf(stream, "Decompression Code:\n%s\n", ReducedString);
+				fclose(stream);
+				*/
+				wifstream wif("Input.txt");
+				wofstream strm;                            // выходной поток-объект
+				strm.open("DecodedFile.txt");    // открываем
+				wchar_t temp_ch;
+				//вариант вывода
+				/*
+				wstring test = ReducedString;
+				for (int i = 0; i < test.size(); i++)
+				{
+					temp_ch = ReducedString[i];
+					strm.put(temp_ch);
+				}*/
+
+				while (wif.get(temp_ch))        // читать все символы, в том числе пробельные
+					strm.put(temp_ch);
+				strm.close();
+				wif.close();
+				Menu();
+				break;
+			}
 		}
 	}
 	delete[] String;
