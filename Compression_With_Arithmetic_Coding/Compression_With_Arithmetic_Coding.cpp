@@ -360,7 +360,7 @@ void main(int argc, char** argv)
     out1[10] = 't';
     out1[11] = '\0';
 
-    //очищение outputa
+    //очищение outputa дбля проверки на точ то было кодирование
     FILE* stream;
     errno_t Output;
     Output = fopen_s(&stream, "output.txt", "w");
