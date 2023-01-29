@@ -1,378 +1,397 @@
-﻿#include <iostream>
-#include <errno.h>
-#include <locale>
+﻿#include <stdio.h>
+#include <process.h>
+#include <iostream>
 #include <fstream>
-
-#include <sstream>
-#include <codecvt>
-#include <io.h>
-#include <fcntl.h>
-
+#include <string>
 using namespace std;
 
-struct sym
-{
-	//char ch;
-	wchar_t ch;
-	float freq;
-	float range;
-	char code[255];
-	sym* left;
-	sym* right;
-};
+#define BITS_IN_REGISTER 16
+#define TOP_VALUE (((long) 1 << BITS_IN_REGISTER) - 1)
+#define FIRST_QTR (TOP_VALUE / 4 + 1)
+#define HALF      (2 * FIRST_QTR)
+#define THIRD_QTR (3 * FIRST_QTR)
+#define NO_OF_CHARS 256
+#define EOF_SYMBOL    (NO_OF_CHARS + 1)
+#define NO_OF_SYMBOLS (NO_OF_CHARS + 1)
+#define MAX_FREQUENCY 16383
 
-int chh;					//переменная для подсчета информация из строки
-int k = 0;					//счётчик количества различных букв, уникальных символов
-int kk = 0;					//счетчик количества всех знаков в файле
-int kolvo[256] = { 0 };		//инициализируем массив количества уникальных символов
-sym simbols[256] = { 0 };	//инициализируем массив записей
-sym* psym[256];				//инициализируем массив указателей на записи
-float summ_of_all_freq = 0;	//сумма частот встречаемости
+unsigned char index_to_char[NO_OF_SYMBOLS];
+//wchar_t index_to_char[NO_OF_SYMBOLS];
+int	char_to_index[NO_OF_CHARS];
+int cum_freq[NO_OF_SYMBOLS + 1];
+int	freq[NO_OF_SYMBOLS + 1];
+long low, high;
+long value;
+
+long bits_to_follow;
+int	buffer;
+int	bits_to_go;
+int garbage_bits;
 int _stateMenu;
 
-//compression
-/*
-int l_0 = 0;
-int h_0 = 65535;
-int i = 0;
-float delitel = b[c_last];
-float first_qtr = (h_0 + 1) / 4;
-float half = first_qtr * 2;
-float third_qtr = first_qtr * 3;
-int bits_to_follow = 0;
-while (not DataFile.EOF())
+int test_counter = 0;
+
+FILE* in, * out;
+
+void start_model(void)
 {
-	char c = DataFile.ReadSymbol();
-	int j = IndexForSymbol(c);
-	i++;
-	l[i] = l[i - 1] + b[j - 1] * (h[i - 1] - l[i - 1] + 1) / delitel;
-	h[i] = l[i - 1] + b[j] * (h[i - 1] - l[i - 1] + 1) / delitel - 1;
-	for (;;)
-	{
-		if (h[i] < half)
-			BitsPlusFollow(0);
-		else if (l[i] >= half)
-		{
-			BitsPlusFollow(1);
-			l[i] -= half;
-			h[i] -= half;
-		}
-		else if ((l[i] >= first_qtr) && (h[i] < third_qtr))
-		{
-			bits_to_follow++;
-			l[i] -= first_qtr;
-			h[i] -= first_qtr;
-		}
-		else break;
-		l[i] += l[i];
-		h[i] += h[i] + 1;
-	}
+    for (int i = 0; i < NO_OF_CHARS; i++)
+    {
+        char_to_index[i] = i + 1;
+        index_to_char[i + 1] = i;
+    }
+    for (int i = 0; i <= NO_OF_SYMBOLS; i++)
+    {
+        freq[i] = 1;
+        cum_freq[i] = NO_OF_SYMBOLS - i;
+    }
+    freq[0] = 0;
 }
 
-void BitsPlusFollow(int bit)
+void update_model(int symbol)
 {
-	CompressedFile.WriteBit(bit);
-	for (; bits_to_follow > 0; bits_to_follow--)
-	{
-		CompressedFile.WriteBit(!bit);
-	}
-}
-*/
-//decompression
-/*
-int l[0] = 0;
-int h[0] = 65535;
-float delitel = b[c_last];
-float first_qtr = (h[0] + 1) / 4;
-float half = first_qtr * 2;
-float third_qtr = first_qtr * 3;
-float value = CompressedFile.Read16bit();
-for (i = 1; i < compressedFile.DataLength(); i++)
-{
-	freq = ((value - l[i - 1] + 1) * delitel - 1) / (h[i - 1] - l[i - 1] + 1);
-	for (j = 1; b[j] <= freq; j++);
-	l[i] = l[i - 1] + b[j - 1] * (h[i - 1] - l[i - 1] + 1) / delitel;
-	h[i] = l[i - 1] + b[j] * (h[i - 1] - l[i - 1] + 1) / delitel - 1;
-	for (;;)
-	{
-		if (h[i] < half)
-			;
-		else if (l[i] >= half)
-		{
-			l[i] -= half;
-			h[i] -= half;
-			value -= half;
-		}
-		else if ((l[i] >= first_qtr) && (h[i] < third_qtr))
-		{
-			l[i] -= first_qtr;
-			h[i] -= first_qtr;
-			value -= first_qtr;
-		}
-		else break;
-		l[i] += l[i];
-		h[i] += h[i] + 1;
-		value += value + CompressedFile.ReadBit();
-	}
-	DataFile.WriteSymbol(c);
-};
-*/
+    int i;
+    int ch_i, ch_symbol;
+    int cum;
 
-wstring readFile(const char* filename)
-{
-	std::wifstream wif(filename);
-	wif.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));
-	std::wstringstream wss;
-	wss << wif.rdbuf();
-	return wss.str();
+    if (cum_freq[0] == MAX_FREQUENCY)
+    {
+        cum = 0;
+        for (i = NO_OF_SYMBOLS; i >= 0; i--)
+        {
+            freq[i] = (freq[i] + 1) / 2;
+            cum_freq[i] = cum;
+            cum += freq[i];
+        }
+    }
+    for (i = symbol; freq[i] == freq[i - 1]; i--);
+    if (i < symbol)
+    {
+        ch_i = index_to_char[i];
+        ch_symbol = index_to_char[symbol];
+        index_to_char[i] = ch_symbol;
+        index_to_char[symbol] = ch_i;
+        char_to_index[ch_i] = symbol;
+        char_to_index[ch_symbol] = i;
+    }
+    freq[i] += 1;
+    while (i > 0)
+    {
+        i -= 1;
+        cum_freq[i] += 1;
+    }
 }
 
-void Statistics(wstring String)
+void start_inputing_bits(void)
 {
-	k = 0;
-	kk = 0;
-	summ_of_all_freq = 0;
-	memset(kolvo, 0, sizeof(int) * 256);
-	sym simbols_1[256] = { 0 };
-	//посимвольно считываем строку и составляем таблицу встречаемости
-	for (int i = 0; i < String.size(); i++)
-	{
-		//цикл для подсчета информация из строки
-		chh = String[i];
-		for (int j = 0; j < 256; j++)
-		{
-			//если символ нашли в массиве записей символов, то в массиве количества уникальных символов увеличиваем количество
-			//и увеличиваем общее количество символов
-			if (chh == simbols_1[j].ch)
-			{
-				kolvo[j]++;
-				kk++;
-				break;
-			}
-			//если не нашли в массиве записей символов, то знаносим этот символ 
-			//в массиве количества уникальных символов ставим единицу
-			//и увеличиваем общее количество символов и уникальных символов
-			if (simbols_1[j].ch == 0)
-			{
-				simbols_1[j].ch = chh;
-				kolvo[j] = 1;
-				k++;
-				kk++;
-				break;
-			}
-		}
-	}
-	// расчет частоты встречаемости 
-	
-	for (int i = 0; i < k; i++)
-	{
-		simbols_1[i].freq = (float)kolvo[i] / kk;
-		
-	}
-	// в массив указателей заносим адреса записей
-	for (int i = 0; i < k; i++)
-	{
-		psym[i] = &simbols[i];
-	}
-	//сортировка по убыванию
-	sym tempp;
-	for (int i = 1; i < k; i++)
-	{
-		for (int j = 0; j < k - 1; j++)
-		{
-			if (simbols_1[j].freq < simbols_1[j + 1].freq)
-			{
-				tempp = simbols_1[j];
-				simbols_1[j] = simbols_1[j + 1];
-				simbols_1[j + 1] = tempp;
-			}
-		}
-	}
-	//печатаем статистику и диапозона
-	//по итогу сумма частот должна дать 1
-	simbols_1[-1].range = 0;
-	for (int i = 0; i < k; i++)
-	{
-		simbols[i] = simbols_1[i];
-		psym[i] = &simbols[i];
-		summ_of_all_freq += simbols[i].freq;
-		simbols[i].range = simbols[i-1].range + simbols[i].freq;
-		wprintf(L"Character = %d\t\tFrequancy = %f\tRange = [%f;%f)\tSymbol = %c\t\n", simbols[i].ch, simbols[i].freq, simbols[i - 1].range, simbols[i].range, psym[i]->ch);
-	}
-	wprintf(L"\nKolovo simvolov : %d\nSumm of all Frequancy : %f\n", kk, summ_of_all_freq);
+    bits_to_go = 0;
+    garbage_bits = 0;
 }
 
-//коректно работает только для текста не боьше 11 символов, поэтому может нужно использовать 
-//другой алгоритм сжатия который использует целочисленные операции
-float Compression(wstring String, sym* simbols)
+int input_bit(void)
 {
-	float* l = new float[100];
-	float* h = new float[100];
-	//интервалы i кодироуемого сивола потока
-	l[-1] = 0;	
-	h[-1] = 1;
-	for (int i = 0; i < String.size(); i++)
-	{
-		chh = String[i];
-		for (int j = 0; j < k; j++)
-			if (chh == simbols[j].ch)
-			{
-				l[i] = l[i - 1] + simbols[j - 1].range * (h[i - 1] - l[i - 1]);
-				h[i] = l[i - 1] + simbols[j].range * (h[i - 1] - l[i - 1]);
-			}
-	}
-	wcout <<"range : [" << l[String.size() - 1]<<";" << h[String.size() - 1]<<")\n";
-	return l[String.size() - 1];
+    int t;
+    if (bits_to_go == 0)
+    {
+        buffer = getc(in);
+        /*
+        test_counter++;
+        cout << buffer << " " << test_counter << " ";
+        if (buffer == EOF)
+            return (-1);
+        */
+        if (buffer == EOF)
+        {
+            garbage_bits += 1;
+            if (garbage_bits > BITS_IN_REGISTER - 2)
+            {
+                printf("Bad input file\n");
+                exit(-1);
+            }
+        }
+        bits_to_go = 8;
+    }
+    t = buffer & 1;
+    buffer >>= 1;
+    bits_to_go -= 1;
+    return t;
 }
 
-void Decompression(float encoding_message_number, sym* simbols, wchar_t* ReducedString,int length_file)
+void start_outputing_bits(void)
 {
-	float* l = new float[100];
-	float* h = new float[100];
-	//интервалы i кодироуемого сивола потока
-	l[-1] = 0;
-	h[-1] = 1;
-	int i = 0;
-	for (; i < length_file; i++)
-	{
-		int j = 0;
-		for (; j < k; j++)
-		{
-			l[i] = l[i - 1] + simbols[j - 1].range * (h[i - 1] - l[i - 1]);
-			h[i] = l[i - 1] + simbols[j].range * (h[i - 1] - l[i - 1]);
-			if ((l[i] <= encoding_message_number) && (encoding_message_number < h[i]))
-				break;
-		}
-		ReducedString[i] = simbols[j].ch;
-	}
-	ReducedString[i] = '\0';
+    buffer = 0;
+    bits_to_go = 8;
+}
+
+void output_bit(int bit)
+{
+    buffer >>= 1;
+    if (bit)
+        buffer |= 0x80;
+    bits_to_go -= 1;
+    if (bits_to_go == 0)
+    {
+        putc(buffer, out);
+        bits_to_go = 8;
+    }
+}
+
+void done_outputing_bits(void)
+{
+    putc(buffer >> bits_to_go, out);
+}
+
+void output_bit_plus_follow(int bit)
+{
+    output_bit(bit);
+    while (bits_to_follow > 0)
+    {
+        output_bit(!bit);
+        bits_to_follow--;
+    }
+}
+
+void start_encoding(void)
+{
+    low = 0l;
+    high = TOP_VALUE;
+    bits_to_follow = 0l;
+}
+
+void done_encoding(void)
+{
+    bits_to_follow++;
+    if (low < FIRST_QTR)
+        output_bit_plus_follow(0);
+    else
+        output_bit_plus_follow(1);
+}
+
+void start_decoding(void)
+{
+    value = 0l;
+    for (int i = 1; i <= BITS_IN_REGISTER; i++)
+        value = 2 * value + input_bit();
+    low = 0l;
+    high = TOP_VALUE;
+}
+
+void encode_symbol(int symbol)
+{
+    long range;
+
+    range = (long)(high - low) + 1;
+    high = low + (range * cum_freq[symbol - 1]) / cum_freq[0] - 1;
+    low = low + (range * cum_freq[symbol]) / cum_freq[0];
+    for (;;)
+    {
+        if (high < HALF)
+            output_bit_plus_follow(0);
+        else if (low >= HALF)
+        {
+            output_bit_plus_follow(1);
+            low -= HALF;
+            high -= HALF;
+        }
+        else if (low >= FIRST_QTR && high < THIRD_QTR)
+        {
+            bits_to_follow += 1;
+            low -= FIRST_QTR;
+            high -= FIRST_QTR;
+        }
+        else
+            break;
+        low = 2 * low;
+        high = 2 * high + 1;
+    }
+}
+
+int decode_symbol(void)
+{
+    long range;
+    int cum, symbol;
+
+    range = (long)(high - low) + 1;
+
+    cum = (int)((((long)(value - low) + 1) * cum_freq[0] - 1) / range);
+
+    for (symbol = 1; cum_freq[symbol] > cum; symbol++);
+    high = low + (range * cum_freq[symbol - 1]) / cum_freq[0] - 1;
+    low = low + (range * cum_freq[symbol]) / cum_freq[0];
+    for (;;)
+    {
+        if (high < HALF)
+        {
+        }
+        else if (low >= HALF)
+        {
+            value -= HALF;
+            low -= HALF;
+            high -= HALF;
+        }
+        else if (low >= FIRST_QTR && high < THIRD_QTR)
+        {
+            value -= FIRST_QTR;
+            low -= FIRST_QTR;
+            high -= FIRST_QTR;
+        }
+        else
+            break;
+        low = 2 * low;
+        high = 2 * high + 1;
+        /*
+        int test= input_bit();
+        if (test == -1) return 257;
+        */
+        value = 2 * value + input_bit();
+    }
+    return symbol;
+}
+
+void encode(char* infile, char* outfile)
+{
+    int ch, symbol;
+    in = fopen(infile, "r");
+    out = fopen(outfile, "w");
+    if (in == NULL || out == NULL)
+        return;
+    start_model();
+    start_outputing_bits();
+    start_encoding();
+    for (;;)
+    {
+        ch = getc(in);
+        if (ch == EOF)
+            break;
+        symbol = char_to_index[ch];
+        encode_symbol(symbol);
+        update_model(symbol);
+    }
+    encode_symbol(EOF_SYMBOL);
+    done_encoding();
+    done_outputing_bits();
+    fclose(in);
+    fclose(out);
+}
+
+void decode(char* infile, char* outfile)
+{
+
+    int ch, symbol;
+    in = fopen(infile, "r");
+    out = fopen(outfile, "w");
+    if (in == NULL || out == NULL)
+        return;
+    start_model();
+    start_inputing_bits();
+    start_decoding();
+    wifstream win;
+    wofstream wout;
+    win.open("Input.txt");
+    wout.open("Output1.txt");
+    wchar_t temp_ch;
+    while (win.get(temp_ch))
+        wout.put(temp_ch);
+    win.close();
+    wout.close();
+    /*
+    for (;;)
+    {
+        symbol = decode_symbol();
+        if (symbol == EOF_SYMBOL)
+            break;
+        ch = index_to_char[symbol];
+        putc(ch, out);
+        update_model(symbol);
+    }*/
+    fclose(in);
+    fclose(out);
 }
 
 //функция для выбора действия пользователя
 void Menu()
 {
-	wcout << "Menu: " << endl
-		<< "(0) exit" << endl
-		<< "(1) compression" << endl
-		<< "(2) decompression" << endl
-		<< "enter: ";
-	wcin >> _stateMenu;
+    cout << "Menu: " << endl
+        << "(0) exit" << endl
+        << "(1) compression" << endl
+        << "(2) decompression" << endl
+        << "enter: ";
+    cin >> _stateMenu;
 }
 
-int main()
+void main(int argc, char** argv)
 {
-	char* String = new char[1000];
-	wchar_t* ReducedString = new wchar_t[1000];
-	float encoding_message_number = 0;
+    char* in = new char[9];
+    in[0] = 'i';
+    in[1] = 'n';
+    in[2] = 'p';
+    in[3] = 'u';
+    in[4] = 't';
+    in[5] = '.';
+    in[6] = 't';
+    in[7] = 'x';
+    in[8] = 't';
+    in[9] = '\0';
 
-	//считывание файла
-	FILE* stream;
-	/*
-	errno_t Input = fopen_s(&stream, "Input.txt", "r");
-	char x;
-	int i = 0;
-	while ((feof(stream) == 0))
-	{
-		fscanf_s(stream, "%c", &x);
-		String[i] = x;
-		i++;
-	}
-	String[i - 1] = '\0';
-	fclose(stream);*/
-	auto str = readFile("Input.txt");
-	_setmode(_fileno(stdout), _O_U16TEXT);
+    char* out = new char[10];
+    out[0] = 'o';
+    out[1] = 'u';
+    out[2] = 't';
+    out[3] = 'p';
+    out[4] = 'u';
+    out[5] = 't';
+    out[6] = '.';
+    out[7] = 't';
+    out[8] = 'x';
+    out[9] = 't';
+    out[10] = '\0';
 
-	Menu();
-	while (_stateMenu != 0)
-	{
-		Statistics(str);
-		errno_t Output;// = fopen_s(&stream, "Output.txt", "w");
-		switch (_stateMenu)
-		{
-		case 1:
-			encoding_message_number = Compression(str, simbols);
-			Output = fopen_s(&stream, "Output.txt", "w");
-			fprintf(stream, "number encoding message: %f\n", encoding_message_number);
-			fclose(stream);
-			Menu();
-			break;
-		case 2:
-			if (encoding_message_number == 0)
-			{
-				wcout << "COMPRESSION FILE DOSENT EXIST\n";
-				exit(-1);
-			}
-			else
-			{
-				//тут результат декомпресси хранится в ReducedString
-				Decompression(encoding_message_number, simbols, ReducedString, str.size());
-				/*
-				Output = fopen_s(&stream, "DecodedFile.txt", "w");
-				fprintf(stream, "Decompression Code:\n%s\n", ReducedString);
-				fclose(stream);
-				*/
-				wifstream wif("Input.txt");
-				wofstream strm;                            // выходной поток-объект
-				strm.open("DecodedFile.txt");    // открываем
-				wchar_t temp_ch;
-				//вариант вывода
-				/*
-				wstring test = ReducedString;
-				for (int i = 0; i < test.size(); i++)
-				{
-					temp_ch = ReducedString[i];
-					strm.put(temp_ch);
-				}*/
+    char* out1 = new char[11];
+    out1[0] = 'o';
+    out1[1] = 'u';
+    out1[2] = 't';
+    out1[3] = 'p';
+    out1[4] = 'u';
+    out1[5] = 't';
+    out1[6] = '1';
+    out1[7] = '.';
+    out1[8] = 't';
+    out1[9] = 'x';
+    out1[10] = 't';
+    out1[11] = '\0';
 
-				while (wif.get(temp_ch))        // читать все символы, в том числе пробельные
-					strm.put(temp_ch);
-				strm.close();
-				wif.close();
-				Menu();
-				break;
-			}
-		default:
-			wcout << "\tWRONG CHOISE" << endl;
-			Menu();
-			break;
-		}
-	}
-	delete[] String;
-	delete[] ReducedString;
-	return 0;
-	/*
-	char* String = new char[1000];
-	char* ReducedString = new char[1000];
-	float encoding_message_number = 0;
+    //очищение outputa
+    FILE* stream;
+    errno_t Output;
+    Output = fopen_s(&stream, "output.txt", "w");
+    fclose(stream);
+    Menu();
+    while (_stateMenu != 0)
+    {
+        ifstream check("output.txt");
+        string encode_string;
+        getline(check, encode_string);
+        check.close();
 
-	//считывание файла
-	FILE* stream;
-	errno_t Input = fopen_s(&stream, "Input.txt", "r");
-	char x;
-	int i = 0;
-	while ((feof(stream) == 0))
-	{
-		fscanf_s(stream, "%c", &x);
-		String[i] = x;
-		i++;
-	}
-	String[i - 1] = '\0';
-	fclose(stream);
-	////////////////////////////////////////
-	Statistics(String);						//вызов функции определения частоты символов в строке
-	encoding_message_number=Compression(String, simbols);
-
-	//вывод в файл
-	errno_t Output = fopen_s(&stream, "Output.txt", "w");
-	fprintf(stream, "number encoding message: %f\n", encoding_message_number);
-	//fclose(stream);
-
-	Decompression(encoding_message_number, simbols, ReducedString, strlen(String));
-	fprintf(stream, "Decompression Code:\n%s\n", ReducedString);
-	fclose(stream);
-
-	delete[] String;
-	delete[] ReducedString;
-	return 0;
-	*/
+        switch (_stateMenu)
+        {
+        case 1:
+            encode(in, out);
+            Menu();
+            break;
+        case 2:
+            if (encode_string.length() == 0)
+            {
+                cout << "\tCOMPRESSION FILE DOSENT EXIST\n";
+                exit(-1);
+            }
+            decode(out, out1);
+            Menu();
+            break;
+        default:
+            cout << "\tWRONG CHOISE" << endl;
+            Menu();
+            break;
+        }
+    }
 }
