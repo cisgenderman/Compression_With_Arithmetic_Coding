@@ -94,12 +94,6 @@ int input_bit(void)
     if (bits_to_go == 0)
     {
         buffer = getc(in);
-        /*
-        test_counter++;
-        cout << buffer << " " << test_counter << " ";
-        if (buffer == EOF)
-            return (-1);
-        */
         if (buffer == EOF)
         {
             garbage_bits += 1;
@@ -248,7 +242,7 @@ int decode_symbol(void)
     return symbol;
 }
 
-void encode(char* infile, char* outfile)
+void encode(const char* infile, const char* outfile)
 {
     int ch, symbol;
     in = fopen(infile, "r");
@@ -274,7 +268,7 @@ void encode(char* infile, char* outfile)
     fclose(out);
 }
 
-void decode(char* infile, char* outfile)
+void decode(const char* infile, const char* outfile)
 {
 
     int ch, symbol;
@@ -285,16 +279,6 @@ void decode(char* infile, char* outfile)
     start_model();
     start_inputing_bits();
     start_decoding();
-    wifstream win;
-    wofstream wout;
-    win.open("Input.txt");
-    wout.open("Output1.txt");
-    wchar_t temp_ch;
-    while (win.get(temp_ch))
-        wout.put(temp_ch);
-    win.close();
-    wout.close();
-    /*
     for (;;)
     {
         symbol = decode_symbol();
@@ -303,7 +287,7 @@ void decode(char* infile, char* outfile)
         ch = index_to_char[symbol];
         putc(ch, out);
         update_model(symbol);
-    }*/
+    }
     fclose(in);
     fclose(out);
 }
@@ -321,44 +305,12 @@ void Menu()
 
 void main(int argc, char** argv)
 {
-    char* in = new char[9];
-    in[0] = 'i';
-    in[1] = 'n';
-    in[2] = 'p';
-    in[3] = 'u';
-    in[4] = 't';
-    in[5] = '.';
-    in[6] = 't';
-    in[7] = 'x';
-    in[8] = 't';
-    in[9] = '\0';
-
-    char* out = new char[10];
-    out[0] = 'o';
-    out[1] = 'u';
-    out[2] = 't';
-    out[3] = 'p';
-    out[4] = 'u';
-    out[5] = 't';
-    out[6] = '.';
-    out[7] = 't';
-    out[8] = 'x';
-    out[9] = 't';
-    out[10] = '\0';
-
-    char* out1 = new char[11];
-    out1[0] = 'o';
-    out1[1] = 'u';
-    out1[2] = 't';
-    out1[3] = 'p';
-    out1[4] = 'u';
-    out1[5] = 't';
-    out1[6] = '1';
-    out1[7] = '.';
-    out1[8] = 't';
-    out1[9] = 'x';
-    out1[10] = 't';
-    out1[11] = '\0';
+    const char* in = new char[9];
+    in = "input.txt";
+    const char* out = new char[10];
+    out = "output.txt";
+    const char* out1 = new char[11];
+    out1 = "output1.txt";
 
     //очищение outputa дбля проверки на точ то было кодирование
     FILE* stream;
@@ -394,4 +346,7 @@ void main(int argc, char** argv)
             break;
         }
     }
+    delete[] in;
+    delete[] out;
+    delete[] out1;
 }
